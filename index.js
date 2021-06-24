@@ -5,6 +5,8 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const expressSession = require('express-session');
 const FileStore = require('session-file-store')(expressSession);
+const passport = require('passport');
+const authenticate = require('./authenticate');
 
 // constants
 const HOST_NAME = '0.0.0.0';
@@ -45,6 +47,8 @@ app.use(
         store: new FileStore()
     })
 );
+app.use(passport.initialize());
+app.use(passport.session());
 
 const basicAuth = (req, res, next) => {
     console.log(req.headers);
@@ -100,15 +104,11 @@ const cookieAuth = (req, res, next) => {
 
 const expressSessionAuth = (req, res, next) => {
     console.log({ expressSession: req.session });
-    if (!req.session.user) {
-        const err = new Error('User is not authenticated');
-        err.status = 401;
-        return next(err);
-    } else if (req.session.user === 'authenticated') {
+    if (req.user) {
         next();
     } else {
         const err = new Error('User is not authenticated');
-        err.status = 403;
+        err.status = 401;
         return next(err);
     }
 };
