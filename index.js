@@ -15,6 +15,7 @@ const SECRET_KEY = '123-124354645-7676';
 const dishRouter = require('./routes/dishRouter');
 const promoRouter = require('./routes/promoRouter');
 const leaderRoute = require('./routes/leaderRouter');
+const userRouter = require('./routes/users');
 
 const mongoose = require('mongoose');
 const isDocker = process.env.IS_DOCKER || false;
@@ -37,7 +38,7 @@ app.use(bodyParser.json());
 // app.use(cookieParser(SECRET_KEY));
 app.use(
     expressSession({
-        name: 'session',
+        name: 'session-id',
         secret: SECRET_KEY,
         saveUninitialized: false,
         resave: false,
@@ -98,34 +99,22 @@ const cookieAuth = (req, res, next) => {
 };
 
 const expressSessionAuth = (req, res, next) => {
-    console.log({expressSession: req.session});
+    console.log({ expressSession: req.session });
     if (!req.session.user) {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) {
-            const err = new Error('User is not authenticated');
-            res.setHeader('WWW-Authenticate', 'Basic');
-            err.status = 401;
-            return next(err);
-        }
-        const auth = new Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
-        const [username, password] = auth;
-        if (username === 'admin' && password === 'password') {
-            req.session.user = 'admin';
-            next();
-        } else {
-            const err = new Error('User is not authenticated');
-            res.setHeader('WWW-Authenticate', 'Basic');
-            err.status = 401;
-            return next(err);
-        }
-    } else if (req.session.user === 'admin') {
-        next();
-    } else {
         const err = new Error('User is not authenticated');
         err.status = 401;
         return next(err);
+    } else if (req.session.user === 'authenticated') {
+        next();
+    } else {
+        const err = new Error('User is not authenticated');
+        err.status = 403;
+        return next(err);
     }
 };
+
+// so that the user route is accessible before authorization
+app.use('/users', userRouter);
 
 // app.use(basicAuth);
 // app.use(cookieAuth);
