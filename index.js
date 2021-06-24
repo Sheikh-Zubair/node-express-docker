@@ -19,12 +19,12 @@ const isDocker = process.env.IS_DOCKER || false;
 const dockerdbUrl = 'mongodb://host.docker.internal:27017/conFusion';
 const localdbUrl = 'mongodb://localhost:27017/conFusion';
 const composedbUrl = 'mongodb://mongodb:27017/conFusion';
-const dbUrl = isDocker?composedbUrl:localdbUrl;//isDocker? dockerdbUrl:localdbUrl;
+const dbUrl = isDocker ? composedbUrl : localdbUrl;//isDocker? dockerdbUrl:localdbUrl;
 const connect = mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 
 connect.then((db) => {
     console.log('connected correctly to the server');
-    console.log({isDocker});
+    console.log({ isDocker });
 }, (err) => {
     console.log('inside error', err);
 });
@@ -32,12 +32,12 @@ connect.then((db) => {
 const app = express();
 app.use(morgan('dev'));
 app.use(bodyParser.json());
-app.use(cookieParser());
+app.use(cookieParser(COOKIE_SECRET_KEY));
 
-const auth = (req, res, next) => {
+const basicAuth = (req, res, next) => {
     console.log(req.headers);
     const authHeader = req.headers.authorization;
-    if(!authHeader) {
+    if (!authHeader) {
         const err = new Error('User is not authenticated');
         res.setHeader('WWW-Authenticate', 'Basic');
         err.status = 401;
@@ -45,7 +45,7 @@ const auth = (req, res, next) => {
     }
     const auth = new Buffer(authHeader.split(' ')[1], 'base64').toString().split(':');
     const [username, password] = auth;
-    if(username==='admin' && password==='password') {
+    if (username === 'admin' && password === 'password') {
         next();
     } else {
         const err = new Error('User is not authenticated');
@@ -53,9 +53,41 @@ const auth = (req, res, next) => {
         err.status = 401;
         return next(err);
     }
+};
+
+const cookieAuth = (req, res, next) => {
+    console.log({signedCookies: req.signedCookies});
+
+    if (!req.signedCookies.user) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            const err = new Error('User is not authenticated');
+            res.setHeader('WWW-Authenticate', 'Basic');
+            err.status = 401;
+            return next(err);
+        }
+        const auth = new Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+        const [username, password] = auth;
+        if (username === 'admin' && password === 'password') {
+            res.cookie('user', 'admin', { signed: true });
+            next();
+        } else {
+            const err = new Error('User is not authenticated');
+            res.setHeader('WWW-Authenticate', 'Basic');
+            err.status = 401;
+            return next(err);
+        }
+    } else if (req.signedCookies.user === 'admin') {
+        next();
+    } else {
+        const err = new Error('User is not authenticated');
+        err.status = 401;
+        return next(err);
+    }
 }
 
-app.use(auth);
+// app.use(basicAuth);
+app.use(cookieAuth);
 
 app.use('/dishes', dishRouter);
 app.use('/promotions', promoRouter);
