@@ -1,0 +1,21 @@
+version: "3.1"
+services:
+    node-express-dev:
+           container_name: node-express-dev
+           image: node-express
+           restart: always
+           environment:
+            - "IS_DOCKER=true"
+           build: .
+           ports:
+            - "4000:3000"
+           links:
+             - mongodb
+    mongodb:
+            container_name: mongodb
+            image: mongo
+            restart: always
+            ports:
+                - "27018:27017"
+            environment:
+               - "MONGO_INITDB_DATABASE=conFusion"
