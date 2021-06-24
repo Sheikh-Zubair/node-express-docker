@@ -3,11 +3,13 @@ const http = require('http');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
+const expressSession = require('express-session');
+const FileStore = require('session-file-store')(expressSession);
 
 // constants
 const HOST_NAME = '0.0.0.0';
 const PORT = 3000;
-const COOKIE_SECRET_KEY = '123-124354645-7676';
+const SECRET_KEY = '123-124354645-7676';
 
 // routes
 const dishRouter = require('./routes/dishRouter');
@@ -32,7 +34,16 @@ connect.then((db) => {
 const app = express();
 app.use(morgan('dev'));
 app.use(bodyParser.json());
-app.use(cookieParser(COOKIE_SECRET_KEY));
+// app.use(cookieParser(SECRET_KEY));
+app.use(
+    expressSession({
+        name: 'session',
+        secret: SECRET_KEY,
+        saveUninitialized: false,
+        resave: false,
+        store: new FileStore()
+    })
+);
 
 const basicAuth = (req, res, next) => {
     console.log(req.headers);
@@ -56,7 +67,7 @@ const basicAuth = (req, res, next) => {
 };
 
 const cookieAuth = (req, res, next) => {
-    console.log({signedCookies: req.signedCookies});
+    console.log({ signedCookies: req.signedCookies });
 
     if (!req.signedCookies.user) {
         const authHeader = req.headers.authorization;
@@ -84,10 +95,41 @@ const cookieAuth = (req, res, next) => {
         err.status = 401;
         return next(err);
     }
-}
+};
+
+const expressSessionAuth = (req, res, next) => {
+    console.log({expressSession: req.session});
+    if (!req.session.user) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            const err = new Error('User is not authenticated');
+            res.setHeader('WWW-Authenticate', 'Basic');
+            err.status = 401;
+            return next(err);
+        }
+        const auth = new Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+        const [username, password] = auth;
+        if (username === 'admin' && password === 'password') {
+            req.session.user = 'admin';
+            next();
+        } else {
+            const err = new Error('User is not authenticated');
+            res.setHeader('WWW-Authenticate', 'Basic');
+            err.status = 401;
+            return next(err);
+        }
+    } else if (req.session.user === 'admin') {
+        next();
+    } else {
+        const err = new Error('User is not authenticated');
+        err.status = 401;
+        return next(err);
+    }
+};
 
 // app.use(basicAuth);
-app.use(cookieAuth);
+// app.use(cookieAuth);
+app.use(expressSessionAuth);
 
 app.use('/dishes', dishRouter);
 app.use('/promotions', promoRouter);
