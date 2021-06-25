@@ -20,11 +20,13 @@ const leaderRoute = require('./routes/leaderRouter');
 const userRouter = require('./routes/users');
 
 const mongoose = require('mongoose');
-const isDocker = process.env.IS_DOCKER || false;
-const dockerdbUrl = 'mongodb://host.docker.internal:27017/conFusion';
-const localdbUrl = 'mongodb://localhost:27017/conFusion';
-const composedbUrl = 'mongodb://mongodb:27017/conFusion';
-const dbUrl = isDocker ? composedbUrl : localdbUrl;//isDocker? dockerdbUrl:localdbUrl;
+
+const config = require('./config');
+// const isDocker = process.env.IS_DOCKER || false;
+// const dockerdbUrl = 'mongodb://host.docker.internal:27017/conFusion';
+// const localdbUrl = 'mongodb://localhost:27017/conFusion';
+// const composedbUrl = 'mongodb://mongodb:27017/conFusion';
+const dbUrl = config.isDocker ? config.mongoUrlDocker : config.mongoUrlLocal;
 const connect = mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 
 connect.then((db) => {
@@ -38,87 +40,35 @@ const app = express();
 app.use(morgan('dev'));
 app.use(bodyParser.json());
 // app.use(cookieParser(SECRET_KEY));
-app.use(
-    expressSession({
-        name: 'session-id',
-        secret: SECRET_KEY,
-        saveUninitialized: false,
-        resave: false,
-        store: new FileStore()
-    })
-);
+// app.use(
+//     expressSession({
+//         name: 'session-id',
+//         secret: SECRET_KEY,
+//         saveUninitialized: false,
+//         resave: false,
+//         store: new FileStore()
+//     })
+// );
 app.use(passport.initialize());
-app.use(passport.session());
+// app.use(passport.session());
 
-const basicAuth = (req, res, next) => {
-    console.log(req.headers);
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        const err = new Error('User is not authenticated');
-        res.setHeader('WWW-Authenticate', 'Basic');
-        err.status = 401;
-        return next(err);
-    }
-    const auth = new Buffer(authHeader.split(' ')[1], 'base64').toString().split(':');
-    const [username, password] = auth;
-    if (username === 'admin' && password === 'password') {
-        next();
-    } else {
-        const err = new Error('User is not authenticated');
-        res.setHeader('WWW-Authenticate', 'Basic');
-        err.status = 401;
-        return next(err);
-    }
-};
-
-const cookieAuth = (req, res, next) => {
-    console.log({ signedCookies: req.signedCookies });
-
-    if (!req.signedCookies.user) {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) {
-            const err = new Error('User is not authenticated');
-            res.setHeader('WWW-Authenticate', 'Basic');
-            err.status = 401;
-            return next(err);
-        }
-        const auth = new Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
-        const [username, password] = auth;
-        if (username === 'admin' && password === 'password') {
-            res.cookie('user', 'admin', { signed: true });
-            next();
-        } else {
-            const err = new Error('User is not authenticated');
-            res.setHeader('WWW-Authenticate', 'Basic');
-            err.status = 401;
-            return next(err);
-        }
-    } else if (req.signedCookies.user === 'admin') {
-        next();
-    } else {
-        const err = new Error('User is not authenticated');
-        err.status = 401;
-        return next(err);
-    }
-};
-
-const expressSessionAuth = (req, res, next) => {
-    console.log({ expressSession: req.session });
-    if (req.user) {
-        next();
-    } else {
-        const err = new Error('User is not authenticated');
-        err.status = 401;
-        return next(err);
-    }
-};
+// const expressSessionAuth = (req, res, next) => {
+//     console.log({ expressSession: req.session });
+//     if (req.user) {
+//         next();
+//     } else {
+//         const err = new Error('User is not authenticated');
+//         err.status = 401;
+//         return next(err);
+//     }
+// };
 
 // so that the user route is accessible before authorization
 app.use('/users', userRouter);
 
 // app.use(basicAuth);
 // app.use(cookieAuth);
-app.use(expressSessionAuth);
+// app.use(expressSessionAuth);
 
 app.use('/dishes', dishRouter);
 app.use('/promotions', promoRouter);

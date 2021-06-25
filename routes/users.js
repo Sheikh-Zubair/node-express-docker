@@ -2,6 +2,7 @@ const express = require('express');
 
 const User = require('../models/user');
 const passport = require('passport');
+const authenticate = require('../authenticate');
 const userRouter = express.Router();
 
 userRouter.get('/', (req, res, next) => {
@@ -32,9 +33,15 @@ userRouter.post('/signup', (req, res, next) => {
 // if login failed password will send user the appropriate message
 // other wise it will call next call back, with user prop in the req
 userRouter.post('/login', passport.authenticate('local'), (req, res, next) => {
+    const token = authenticate.getToken({
+        username: req.user.username,
+        admin: req.user.admin,
+        _id: req.user._id
+    });
     res.status(200).json({
         sussess: true,
         status: 'Login Successful!',
+        token,
         user: {
             username: req.user.username,
             admin: req.user.admin
